@@ -91,6 +91,12 @@
             <version>3.5.3</version>
         </dependency>
 
+        <dependency>
+            <groupId>org.hibernate.orm</groupId>
+            <artifactId>hibernate-core</artifactId>
+            <version>6.6.13.Final</version>
+        </dependency>
+
     </dependencies>
 
     <build>
