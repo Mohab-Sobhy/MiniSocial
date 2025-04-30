@@ -1,10 +1,12 @@
 package com.example.minisocial.model;
 
 import jakarta.persistence.*;
+import java.util.HashSet;
+import java.util.Set;
 
 @Entity
 @Table(name = "users", indexes = {
-        @Index(name = "idx_user_email", columnList = "email")// Implementing indexing on the email field to enhance the login speed
+        @Index(name = "idx_user_email", columnList = "email")// indexing in email
 })
 public class User {
     @Id
@@ -28,16 +30,18 @@ public class User {
         USER, ADMIN
     }
 
-    // Getters and Setters
+    // ✅ علاقات الأصدقاء
+    @OneToMany(mappedBy = "user")
+    private Set<Friendship> friendships = new HashSet<>();
 }
 
 /*
-| Field     | Type            | Constraints                    | Description        |
-|-----------|-----------------|--------------------------------|--------------------|
-| id        | Long            | Primary Key, Auto-generated    | User ID            |
-| name      | String          | None                           | User's full name   |
-| email     | String          | Not null, Unique               | User's email       |
-| password  | String          | None                           | User's password    |
-| bio       | String          | None                           | User's bio         |
-| role      | Enum (Role)     | Not null, Enum (USER, ADMIN)   | User's role        |
+| Field           | Type              | Constraints                      | Description                           |
+|-----------------|-------------------|----------------------------------|---------------------------------------|
+| id              | Long              | Primary Key, Auto-generated      | User ID                               |
+| name            | String            | None                             | User's name                           |
+| email           | String            | Not null, Unique                 | User's email                          |
+| password        | String            | None                             | User's password                       |
+| bio             | String            | None                             | User's bio                            |
+| role            | Enum (Role)       | Not null                         | User's role (USER, ADMIN)             |
 */
