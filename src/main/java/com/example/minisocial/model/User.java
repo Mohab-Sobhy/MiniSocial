@@ -4,7 +4,7 @@ import jakarta.persistence.*;
 
 @Entity
 @Table(name = "users", indexes = {
-        @Index(name = "idx_user_email", columnList = "email")
+        @Index(name = "idx_user_email", columnList = "email")// Implementing indexing on the email field to enhance the login speed
 })
 public class User {
     @Id

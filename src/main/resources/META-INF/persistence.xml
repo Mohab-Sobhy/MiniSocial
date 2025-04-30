@@ -7,6 +7,15 @@
     <persistence-unit name="MiniSocialPU" transaction-type="JTA">
         <jta-data-source>java:/MariaDB</jta-data-source>
 
+        <class>com.example.minisocial.model.Comment</class>
+        <class>com.example.minisocial.model.FriendRequest</class>
+        <class>com.example.minisocial.model.Group</class>
+        <class>com.example.minisocial.model.GroupMembership</class>
+        <class>com.example.minisocial.model.GroupPost</class>
+        <class>com.example.minisocial.model.Like</class>
+        <class>com.example.minisocial.model.Notification</class>
+        <class>com.example.minisocial.model.Post</class>
+        <class>com.example.minisocial.model.User</class>
         <class>com.example.minisocial.model.Test</class>
 
         <properties>
