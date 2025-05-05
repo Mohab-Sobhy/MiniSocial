@@ -20,7 +20,7 @@ public class UserService {
         user.setPassword(password);
         user.setName(name);
         user.setBio(bio);
-        user.setRole(role);
+        user.setRole(String.valueOf(role));
 
         entityManager.persist(user);
         return user;
