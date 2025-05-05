@@ -39,11 +39,12 @@ public class UserService {
     }
 
 
-    public User updateUserProfile(Long userId, String name, String bio, String password) {
+    public User updateUserProfile(Long userId, String name, String bio, String password, String email) {
         User user = entityManager.find(User.class, userId);
         if (user != null) {
             user.setName(name);
             user.setBio(bio);
+            user.setEmail(email);
             if (password != null && !password.isEmpty()) {
                 user.setPassword(password);
             }
@@ -51,32 +52,5 @@ public class UserService {
         }
         return user;
     }
-
-    public Friendship sendFriendRequest(Long userId, Long friendId) {
-        User user = entityManager.find(User.class, userId);
-        User friend = entityManager.find(User.class, friendId);
-
-        if (user != null && friend != null) {
-            Friendship friendship = new Friendship();
-            friendship.setUser(user);
-            friendship.setFriend(friend);
-            friendship.setAccepted(false); // Initially, the friendship is pending
-
-            entityManager.persist(friendship);
-            return friendship;
-        }
-
-        return null;
-    }
-
-
-    public Friendship acceptFriendRequest(Long friendshipId) {
-        Friendship friendship = entityManager.find(Friendship.class, friendshipId);
-        if (friendship != null) {
-            friendship.setAccepted(true);
-            entityManager.merge(friendship);
-            return friendship;
-        }
-        return null;
-    }
+    
 }
