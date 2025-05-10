@@ -1,17 +1,9 @@
 package com.example.minisocial.service;
 
-import com.example.minisocial.model.User;
 import com.example.minisocial.model.Friendship;
+import com.example.minisocial.model.User;
 import jakarta.ejb.Stateless;
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.PersistenceContext;
-import jakarta.persistence.TypedQuery;
-import jakarta.ws.rs.GET;
-import jakarta.ws.rs.Path;
-import jakarta.ws.rs.PathParam;
-import jakarta.ws.rs.Produces;
-import jakarta.ws.rs.core.MediaType;
-import jakarta.ws.rs.core.Response;
+import jakarta.persistence.*;
 
 import java.util.List;
 
@@ -19,70 +11,85 @@ import java.util.List;
 public class FriendshipService {
 
     @PersistenceContext
-    private EntityManager entityManager;
-    private FriendshipService friendshipService;
+    private EntityManager em;
 
-    public Friendship sendFriendRequest(Long userId, Long friendId) {
-        User user = entityManager.find(User.class, userId);
-        User friend = entityManager.find(User.class, friendId);
+    /* ------------ create ------------ */
+    public Friendship sendRequest(Long senderId, Long receiverId) {
+        if (senderId.equals(receiverId)) return null;                        // cannot friend yourself
 
-        if (user != null && friend != null) {
-            Friendship friendship = new Friendship();
-            friendship.setUser(user);
-            friendship.setFriend(friend);
-            friendship.setAccepted(false);
+        // avoid duplicates (regardless of direction)
+        boolean exists = em.createQuery("""
+            SELECT COUNT(f) FROM Friendship f
+            WHERE (f.user.id = :a AND f.friend.id = :b)
+               OR (f.user.id = :b AND f.friend.id = :a)
+            """, Long.class)
+                .setParameter("a", senderId)
+                .setParameter("b", receiverId)
+                .getSingleResult() > 0;
+        if (exists) return null;
 
-            entityManager.persist(friendship);
-            return friendship;
-        }
+        User sender   = em.find(User.class, senderId);
+        User receiver = em.find(User.class, receiverId);
+        if (sender == null || receiver == null) return null;
 
-        return null;
+        Friendship fr = new Friendship();
+        fr.setUser(sender);
+        fr.setFriend(receiver);
+        em.persist(fr);
+        return fr;
     }
 
-    public Friendship acceptFriendRequest(Long friendshipId) {
-        Friendship friendship = entityManager.find(Friendship.class, friendshipId);
-        if (friendship != null) {
-            friendship.setAccepted(true);
-            entityManager.merge(friendship);
-            return friendship;
-        }
-        return null;
+    /* ------------ update ------------ */
+    public Friendship accept(Long friendshipId) {
+        Friendship fr = em.find(Friendship.class, friendshipId);
+        if (fr == null || fr.getStatus() == Friendship.Status.ACCEPTED) return null;
+        fr.setStatus(Friendship.Status.ACCEPTED);
+        return fr;    // managed entity
     }
 
-    public boolean rejectFriendRequest(Long friendshipId) {
-        Friendship friendship = entityManager.find(Friendship.class, friendshipId);
-        if (friendship != null) {
-            entityManager.remove(friendship);
-            return true;
-        }
-        return false;
+    public boolean reject(Long friendshipId) {
+        Friendship fr = em.find(Friendship.class, friendshipId);
+        if (fr == null) return false;
+        em.remove(fr);
+        return true;
     }
 
-    // Get all friends of a user (accepted friendships)
-    /*public List<User> getFriends(Long userId) {
-        String query = "SELECT f.friend FROM Friendship f WHERE f.user.id = :userId AND f.accepted = true";
-        TypedQuery<User> typedQuery = entityManager.createQuery(query, User.class);
-        typedQuery.setParameter("userId", userId);
-        return typedQuery.getResultList(); // Return the list of friends
-    }*/
+    /* ------------ read ------------ */
+    public List<User> listFriends(Long userId) {
 
-    public List<Friendship> getPendingFriendRequests(Long userId) {
-        String query = "SELECT f FROM Friendship f WHERE f.friend.id = :userId AND f.accepted = false";
-        TypedQuery<Friendship> typedQuery = entityManager.createQuery(query, Friendship.class);
-        typedQuery.setParameter("userId", userId);
-        return typedQuery.getResultList();
+        // friends where *I* am the sender
+        List<User> outgoing = em.createQuery("""
+        SELECT f.friend
+        FROM Friendship f
+        WHERE f.user.id   = :uid
+          AND f.status     = :status
+        """, User.class)
+                .setParameter("uid",    userId)
+                .setParameter("status", Friendship.Status.ACCEPTED)
+                .getResultList();
+
+        // friends where *I* am the receiver
+        List<User> incoming = em.createQuery("""
+        SELECT f.user
+        FROM Friendship f
+        WHERE f.friend.id = :uid
+          AND f.status     = :status
+        """, User.class)
+                .setParameter("uid",    userId)
+                .setParameter("status", Friendship.Status.ACCEPTED)
+                .getResultList();
+
+        outgoing.addAll(incoming);
+        return outgoing;   // UNIQUE constraint guarantees no duplicates
     }
-    @GET
-    @Path("/{userId}/friends")
-    @Produces(MediaType.APPLICATION_JSON)
-    public Response getFriends(@PathParam("userId") Long userId) {
-        // Fetch the list of friends (User objects)
-        Response friends = friendshipService.getFriends(userId);
 
-        // Return the Response with the List<User> as the entity (the response body)
-        return Response.status(Response.Status.OK)  // HTTP status code 200 OK
-                .entity(friends)                   // The actual data (List<User>) as the response body
-                .build();                           // Build the Response object
+    public List<Friendship> pendingRequests(Long userId) {
+        return em.createQuery("""
+            SELECT f FROM Friendship f
+            WHERE f.friend.id = :uid
+              AND f.status = com.example.minisocial.model.Friendship$Status.PENDING
+            """, Friendship.class)
+                .setParameter("uid", userId)
+                .getResultList();
     }
-
 }

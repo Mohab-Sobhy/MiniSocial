@@ -4,54 +4,47 @@ import jakarta.persistence.*;
 import java.time.LocalDateTime;
 
 @Entity
-@Table(name = "friendships")
+@Table(name = "friendships",
+        uniqueConstraints = @UniqueConstraint(columnNames = {"user_id", "friend_id"}))
 public class Friendship {
+
+    public enum Status { PENDING, ACCEPTED }
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
-    @ManyToOne
+    /* ----------- relationships ----------- */
+    @ManyToOne(optional = false)
     @JoinColumn(name = "user_id")
-    private User user;
+    private User user;              // person who sent the request
 
-    @ManyToOne
+    @ManyToOne(optional = false)
     @JoinColumn(name = "friend_id")
-    private User friend;
+    private User friend;            // person who receives the request
 
+    /* ----------- metadata ----------- */
     @Column(nullable = false)
     private LocalDateTime friendshipDate;
 
-    private boolean accepted;
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false)
+    private Status status = Status.PENDING;
 
-    public User getUser() {
-        return user;
-    }
-
-    public void setUser(User user) {
-        this.user = user;
-    }
-    public User getFriend() {
-        return friend;
+    /* ----------- lifecycle ----------- */
+    @PrePersist
+    private void onCreate() {
+        friendshipDate = LocalDateTime.now();
     }
 
-    public void setFriend(User friend) {
-        this.friend = friend;
-    }
-    public boolean isAccepted() {
-        return accepted;
-    }
+    /* ----------- getters / setters ----------- */
+    public Long getId()               { return id; }
+    public User getUser()             { return user; }
+    public User getFriend()           { return friend; }
+    public LocalDateTime getFriendshipDate() { return friendshipDate; }
+    public Status getStatus()         { return status; }
 
-    public void setAccepted(boolean accepted) {
-        this.accepted = accepted;
-    }
+    public void setUser(User user)         { this.user = user; }
+    public void setFriend(User friend)     { this.friend = friend; }
+    public void setStatus(Status status)   { this.status = status; }
 }
-
-/*
-| Field           | Type              | Constraints                      | Description                          |
-|-----------------|-------------------|----------------------------------|--------------------------------------|
-| id              | Long              | Primary Key, Auto-generated      | Friendship ID                        |
-| user_id         | Long              | Not null                         | User ID                              |
-| friend_id       | Long              | Not null                         | Friend ID                            |
-| friendship_date | LocalDateTime     | Not null                         | Date when the friendship was created |
-*/
