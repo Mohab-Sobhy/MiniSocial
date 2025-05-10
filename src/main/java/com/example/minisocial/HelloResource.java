@@ -1,18 +1,21 @@
 package com.example.minisocial;
 
 import com.example.minisocial.model.Test;
+import com.example.minisocial.model.User;
+import com.example.minisocial.service.UserService;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 import jakarta.transaction.Transactional;
-import jakarta.ws.rs.GET;
-import jakarta.ws.rs.Path;
-import jakarta.ws.rs.Produces;
+import jakarta.ws.rs.*;
+import jakarta.ws.rs.core.MediaType;
+import jakarta.ws.rs.core.Response;
 //lol//
 @Path("/hello-world")
 public class HelloResource {
 
     @PersistenceContext(unitName = "MiniSocialPU")
     private EntityManager em;
+
 
     @GET
     @Produces("text/plain")
@@ -22,4 +25,6 @@ public class HelloResource {
         em.persist(t);
         return "Hello, World!";
     }
+
+
 }
