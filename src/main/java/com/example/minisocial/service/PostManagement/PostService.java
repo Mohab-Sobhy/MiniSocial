@@ -28,7 +28,6 @@ public class PostService {
     }
 
     public List<Post> getTimeline(Long userId) {
-        // استرجاع الأصدقاء + منشورات المستخدم نفسه
         List<Long> friendIds = em.createQuery(
                         "SELECT f.friend.id FROM Friendship f WHERE f.user.id = :uid " +
                                 "UNION " +
