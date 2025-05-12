@@ -19,9 +19,9 @@ public class User {
     @Column(nullable = false, unique = true)
     private String email;
 
-    @JsonProperty("Password")
-    @Column(nullable = false)
-    private String password;
+    @JsonProperty("hashedPassword")
+    @Column(nullable = false, unique = true)
+    private String hashedPassword;
 
     @JsonProperty("Name")
     @Column(nullable = false)
@@ -38,14 +38,14 @@ public class User {
 
     public Long getId()         { return id; }
     public String getEmail()    { return email; }
-    public String getPassword() { return password; }
+    public String getHashedPassword()    { return hashedPassword; }
     public String getName()     { return name; }
     public String getBio()      { return bio; }
     public Role getRole()       { return role; }
 
-    public void setEmail(String email)       { this.email = email; }
-    public void setPassword(String password) { this.password = password; }
-    public void setName(String name)         { this.name = name; }
-    public void setBio(String bio)           { this.bio = bio; }
-    public void setRole(Role role)           { this.role = role; }
+    public void setEmail(String email)    { this.email = email; }
+    public void setHashedPassword(String token)    { this.hashedPassword = token; }
+    public void setName(String name)      { this.name = name; }
+    public void setBio(String bio)        { this.bio = bio; }
+    public void setRole(Role role)        { this.role = role; }
 }
