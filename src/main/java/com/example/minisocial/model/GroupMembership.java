@@ -5,7 +5,8 @@ import jakarta.persistence.*;
 @Entity
 @Table(name = "group_memberships", uniqueConstraints = @UniqueConstraint(columnNames = {"group_id", "user_id"}))
 public class GroupMembership {
-    @Id @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
 
     @ManyToOne(optional = false)
@@ -24,6 +25,16 @@ public class GroupMembership {
     }
 
     // Getters & Setters
+    public Long getId() {return id;}
+    public void setId(Long id) {this.id = id;}
+    public Group getGroup() {return group;}
+    public void setGroup(Group group) {this.group = group;}
+    public User getUser() {return user;}
+    public void setUser(User user) {this.user = user;}
+    public boolean isAdmin() {return isAdmin;}
+    public void setAdmin(boolean isAdmin) {this.isAdmin = isAdmin;}
+    public Status getStatus() {return status;}
+    public void setStatus(Status status) {this.status = status;}
 }
 
 /*
