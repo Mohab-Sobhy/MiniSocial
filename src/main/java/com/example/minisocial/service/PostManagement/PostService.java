@@ -9,6 +9,7 @@ import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
 
 import java.util.List;
+import java.util.Set;
 
 @Stateless
 public class PostService {
@@ -28,19 +29,35 @@ public class PostService {
     }
 
     public List<Post> getTimeline(Long userId) {
-        List<Long> friendIds = em.createQuery(
-                        "SELECT f.friend.id FROM Friendship f WHERE f.user.id = :uid " +
-                                "UNION " +
-                                "SELECT f.user.id FROM Friendship f WHERE f.friend.id = :uid", Long.class)
+        // استعلام 1: الأصدقاء الذين أرسل لهم المستخدم طلبات صداقة
+        List<Long> sentFriendIds = em.createQuery(
+                        "SELECT f.friend.id FROM Friendship f WHERE f.user.id = :uid", Long.class)
                 .setParameter("uid", userId)
                 .getResultList();
-        friendIds.add(userId); // include user's own posts
 
+        // استعلام 2: الأصدقاء الذين أرسلوا له طلبات صداقة
+        List<Long> receivedFriendIds = em.createQuery(
+                        "SELECT f.user.id FROM Friendship f WHERE f.friend.id = :uid", Long.class)
+                .setParameter("uid", userId)
+                .getResultList();
+
+        // دمج القوائم بدون تكرار
+        Set<Long> friendIds = new java.util.HashSet<>();
+        friendIds.addAll(sentFriendIds);
+        friendIds.addAll(receivedFriendIds);
+        friendIds.add(userId); // تضمين منشورات المستخدم نفسه
+
+        if (friendIds.isEmpty()) {
+            return List.of(); // لا داعي لتنفيذ استعلام إذا لا يوجد أي معرفات
+        }
+
+        // استعلام المنشورات
         return em.createQuery(
                         "SELECT p FROM Post p WHERE p.author.id IN :friendIds ORDER BY p.createdAt DESC", Post.class)
                 .setParameter("friendIds", friendIds)
                 .getResultList();
     }
+
 
     public Post updatePost(Long postId, Long userId, String newContent, String imageUrl, String linkUrl) {
         Post post = em.find(Post.class, postId);

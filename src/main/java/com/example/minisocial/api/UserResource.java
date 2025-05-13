@@ -3,12 +3,12 @@ package com.example.minisocial.api;
 import com.example.minisocial.model.User;
 import com.example.minisocial.service.UserManagement.UserService;
 import com.example.minisocial.util.JwtUtil;
+import io.jsonwebtoken.Claims;
 import jakarta.annotation.security.PermitAll;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
 import jakarta.ws.rs.*;
-import jakarta.ws.rs.core.MediaType;
-import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.*;
 import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.eclipse.microprofile.openapi.annotations.enums.SchemaType;
 import org.eclipse.microprofile.openapi.annotations.enums.SecuritySchemeType;
@@ -17,6 +17,7 @@ import org.eclipse.microprofile.openapi.annotations.media.Schema;
 import org.eclipse.microprofile.openapi.annotations.responses.APIResponse;
 import org.eclipse.microprofile.openapi.annotations.security.SecurityRequirement;
 import org.eclipse.microprofile.openapi.annotations.security.SecurityScheme;
+import org.eclipse.microprofile.openapi.annotations.tags.Tag;
 
 @Path("/users")
 @Produces(MediaType.APPLICATION_JSON)
@@ -27,6 +28,7 @@ import org.eclipse.microprofile.openapi.annotations.security.SecurityScheme;
         scheme = "bearer",
         bearerFormat = "JWT"
 )
+@Tag(name = "User Management", description = "APIs for managing user accounts including registration, login, and profile updates")
 public class UserResource {
 
     @Inject
@@ -50,7 +52,8 @@ public class UserResource {
             description = "Email already registered"
     )
     public Response register(User user) {
-        return Response.ok(userService.register(user)).build();
+        User registered = userService.register(user);
+        return Response.ok(registered).build();
     }
 
     @POST
@@ -70,6 +73,9 @@ public class UserResource {
     )
     public Response login(User credentials) {
         String token = userService.login(credentials.getEmail(), credentials.getHashedPassword());
+        if (token == null) {
+            return Response.status(Response.Status.UNAUTHORIZED).entity("Invalid credentials").build();
+        }
         return Response.ok(token).build();
     }
 
@@ -88,8 +94,12 @@ public class UserResource {
             responseCode = "401",
             description = "Unauthorized"
     )
-    public Response getProfile(@HeaderParam("Authorization") String authHeader) {
-        String token = authHeader.substring("Bearer".length()).trim();
+    public Response getProfile(@Context HttpHeaders headers) {
+        String token = extractToken(headers);
+        if (token == null || !jwtUtil.validateToken(token)) {
+            return Response.status(Response.Status.UNAUTHORIZED).entity("Invalid or missing token").build();
+        }
+
         Long userId = jwtUtil.getIdFromToken(token);
         User user = userService.findById(userId);
         return Response.ok(user).build();
@@ -114,10 +124,12 @@ public class UserResource {
             responseCode = "401",
             description = "Unauthorized"
     )
-    public Response updateProfile(
-            @HeaderParam("Authorization") String authHeader,
-            User updatedUser) {
-        String token = authHeader.substring("Bearer".length()).trim();
+    public Response updateProfile(@Context HttpHeaders headers, User updatedUser) {
+        String token = extractToken(headers);
+        if (token == null || !jwtUtil.validateToken(token)) {
+            return Response.status(Response.Status.UNAUTHORIZED).entity("Invalid or missing token").build();
+        }
+
         Long userId = jwtUtil.getIdFromToken(token);
         User updated = userService.updateProfile(userId, updatedUser);
         return Response.ok(updated).build();
@@ -143,5 +155,15 @@ public class UserResource {
     )
     public Response getAllUsers() {
         return Response.ok(userService.findAll()).build();
+    }
+
+    // ========== Utility Method ==========
+
+    private String extractToken(HttpHeaders headers) {
+        String authHeader = headers.getHeaderString(HttpHeaders.AUTHORIZATION);
+        if (authHeader != null && authHeader.startsWith("Bearer ")) {
+            return authHeader.substring("Bearer ".length()).trim();
+        }
+        return null;
     }
 }
