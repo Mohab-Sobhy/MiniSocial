@@ -43,132 +43,94 @@ public class ConnectionResource {
 
     @POST
     @Path("/request")
-    @Operation(
-            summary = "Send friend request",
-            description = "Sends a friend request from one user to another"
-    )
-    @APIResponse(responseCode = "201", description = "Friend request created successfully")
-    @APIResponse(responseCode = "400", description = "Invalid input data")
-    @APIResponse(responseCode = "401", description = "Unauthorized")
-    public Response sendFriendRequest(FriendRequestDTO dto, @Context HttpHeaders headers) {
+    @Consumes(MediaType.TEXT_PLAIN)
+    public Response sendFriendRequest(String receiverIdStr, @Context HttpHeaders headers) {
         Long userId = extractUserId(headers);
         if (userId == null) {
             return Response.status(Response.Status.UNAUTHORIZED).build();
         }
 
-        //connectionService.sendFriendRequest(userId, dto.getReceiverId());
-        return Response.status(Response.Status.CREATED).build();
+        try {
+            Long receiverId = Long.parseLong(receiverIdStr.trim());
+            connectionService.sendFriendRequest(userId, receiverId);
+            return Response.status(Response.Status.CREATED).build();
+        } catch (NumberFormatException e) {
+            return Response.status(Response.Status.BAD_REQUEST).entity("Invalid receiver ID").build();
+        }
     }
 
     @GET
     @Path("/pending")
-    @Operation(summary = "Get pending friend requests", description = "Retrieves all incoming friend requests that haven't been responded to")
-    @APIResponse(
-            responseCode = "200",
-            description = "List of pending friend requests",
-            content = @Content(schema = @Schema(implementation = FriendRequestDTO[].class))
-    )
-    @APIResponse(responseCode = "401", description = "Unauthorized")
     public Response getPendingRequests(@Context HttpHeaders headers) {
         Long userId = extractUserId(headers);
         if (userId == null) {
             return Response.status(Response.Status.UNAUTHORIZED).build();
         }
 
-        //List<FriendRequestDTO> requests = connectionService.getPendingRequests(userId);
-        return Response.ok("").build();
+        List<FriendRequestDTO> requests = connectionService.getPendingRequests(userId);
+        return Response.ok(requests).build();
     }
 
     @PUT
     @Path("/{requestId}/accept")
-    @Operation(summary = "Accept friend request", description = "Accepts a pending friend request")
-    @APIResponse(responseCode = "200", description = "Friend request accepted successfully")
-    @APIResponse(responseCode = "404", description = "Friend request not found")
-    @APIResponse(responseCode = "401", description = "Unauthorized")
     public Response accept(@PathParam("requestId") Long requestId, @Context HttpHeaders headers) {
         Long userId = extractUserId(headers);
         if (userId == null) {
             return Response.status(Response.Status.UNAUTHORIZED).build();
         }
 
-        //connectionService.acceptFriendRequest(userId, requestId);
+        connectionService.acceptFriendRequest(userId, requestId);
         return Response.ok().build();
     }
 
     @PUT
     @Path("/{requestId}/reject")
-    @Operation(summary = "Reject friend request", description = "Rejects a pending friend request")
-    @APIResponse(responseCode = "200", description = "Friend request rejected successfully")
-    @APIResponse(responseCode = "404", description = "Friend request not found")
-    @APIResponse(responseCode = "401", description = "Unauthorized")
     public Response reject(@PathParam("requestId") Long requestId, @Context HttpHeaders headers) {
         Long userId = extractUserId(headers);
         if (userId == null) {
             return Response.status(Response.Status.UNAUTHORIZED).build();
         }
 
-        //connectionService.rejectFriendRequest(userId, requestId);
+        connectionService.rejectFriendRequest(userId, requestId);
         return Response.ok().build();
     }
 
     @GET
     @Path("/friends")
-    @Operation(summary = "Get friends list", description = "Retrieves all accepted friends of a user")
-    @APIResponse(
-            responseCode = "200",
-            description = "List of friends",
-            content = @Content(schema = @Schema(implementation = UserDTO[].class))
-    )
-    @APIResponse(responseCode = "401", description = "Unauthorized")
     public Response getFriends(@Context HttpHeaders headers) {
         Long userId = extractUserId(headers);
         if (userId == null) {
             return Response.status(Response.Status.UNAUTHORIZED).build();
         }
 
-        //List<UserDTO> friends = connectionService.getFriends(userId);
-        return Response.ok("").build();
+        List<UserDTO> friends = connectionService.getFriends(userId);
+        return Response.ok(friends).build();
     }
 
     @GET
     @Path("/search")
-    @Operation(summary = "Search users", description = "Search users by name or email")
-    @APIResponse(
-            responseCode = "200",
-            description = "List of matching users",
-            content = @Content(schema = @Schema(implementation = UserDTO[].class))
-    )
-    @APIResponse(responseCode = "400", description = "Invalid token or query")
     public Response searchUsers(@QueryParam("q") String keyword, @Context HttpHeaders headers) {
         Long userId = extractUserId(headers);
         if (userId == null || keyword == null || keyword.isBlank()) {
             return Response.status(Response.Status.BAD_REQUEST).entity("Invalid token or query").build();
         }
 
-        //List<UserDTO> users = connectionService.searchUsers(userId, keyword);
-        return Response.ok("").build();
+        List<UserDTO> users = connectionService.searchUsers(userId, keyword);
+        return Response.ok(users).build();
     }
 
     @GET
     @Path("/suggestions")
-    @Operation(summary = "Suggest friends", description = "Suggest friends based on mutual connections")
-    @APIResponse(
-            responseCode = "200",
-            description = "List of suggested users",
-            content = @Content(schema = @Schema(implementation = UserDTO[].class))
-    )
-    @APIResponse(responseCode = "401", description = "Unauthorized")
     public Response suggestFriends(@Context HttpHeaders headers) {
         Long userId = extractUserId(headers);
         if (userId == null) {
             return Response.status(Response.Status.UNAUTHORIZED).build();
         }
 
-        //List<UserDTO> suggestions = connectionService.suggestFriends(userId);
-        return Response.ok("").build();
+        List<UserDTO> suggestions = connectionService.suggestFriends(userId);
+        return Response.ok(suggestions).build();
     }
 
-    // 🔒 أداة مساعدة لاستخراج userId من JWT
     private Long extractUserId(HttpHeaders headers) {
         String token = extractToken(headers);
         if (token == null || !jwtUtil.validateToken(token)) {
