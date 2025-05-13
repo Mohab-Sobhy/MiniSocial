@@ -10,14 +10,10 @@ import jakarta.ws.rs.core.Context;
 import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
-
 import java.util.List;
 
 import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.eclipse.microprofile.openapi.annotations.enums.SecuritySchemeType;
-import org.eclipse.microprofile.openapi.annotations.media.Content;
-import org.eclipse.microprofile.openapi.annotations.media.Schema;
-import org.eclipse.microprofile.openapi.annotations.responses.APIResponse;
 import org.eclipse.microprofile.openapi.annotations.security.SecurityRequirement;
 import org.eclipse.microprofile.openapi.annotations.security.SecurityScheme;
 import org.eclipse.microprofile.openapi.annotations.tags.Tag;
@@ -44,6 +40,7 @@ public class ConnectionResource {
     @POST
     @Path("/request")
     @Consumes(MediaType.TEXT_PLAIN)
+    @Operation(summary = "Send a friend request", description = "Send a request to another user.")
     public Response sendFriendRequest(String receiverIdStr, @Context HttpHeaders headers) {
         Long userId = extractUserId(headers);
         if (userId == null) {
@@ -61,6 +58,7 @@ public class ConnectionResource {
 
     @GET
     @Path("/pending")
+    @Operation(summary = "Get pending friend requests", description = "Retrieve all pending friend requests for the current user.")
     public Response getPendingRequests(@Context HttpHeaders headers) {
         Long userId = extractUserId(headers);
         if (userId == null) {
@@ -73,6 +71,7 @@ public class ConnectionResource {
 
     @PUT
     @Path("/{requestId}/accept")
+    @Operation(summary = "Accept a friend request", description = "Accept a specific friend request by its ID.")
     public Response accept(@PathParam("requestId") Long requestId, @Context HttpHeaders headers) {
         Long userId = extractUserId(headers);
         if (userId == null) {
@@ -85,6 +84,7 @@ public class ConnectionResource {
 
     @PUT
     @Path("/{requestId}/reject")
+    @Operation(summary = "Reject a friend request", description = "Reject a specific friend request by its ID.")
     public Response reject(@PathParam("requestId") Long requestId, @Context HttpHeaders headers) {
         Long userId = extractUserId(headers);
         if (userId == null) {
@@ -97,6 +97,7 @@ public class ConnectionResource {
 
     @GET
     @Path("/friends")
+    @Operation(summary = "Get friends list", description = "Retrieve the current user's list of friends.")
     public Response getFriends(@Context HttpHeaders headers) {
         Long userId = extractUserId(headers);
         if (userId == null) {
@@ -109,6 +110,7 @@ public class ConnectionResource {
 
     @GET
     @Path("/search")
+    @Operation(summary = "Search users", description = "Search for users by keyword.")
     public Response searchUsers(@QueryParam("q") String keyword, @Context HttpHeaders headers) {
         Long userId = extractUserId(headers);
         if (userId == null || keyword == null || keyword.isBlank()) {
@@ -121,6 +123,7 @@ public class ConnectionResource {
 
     @GET
     @Path("/suggestions")
+    @Operation(summary = "Get friend suggestions", description = "Retrieve suggested friends for the current user.")
     public Response suggestFriends(@Context HttpHeaders headers) {
         Long userId = extractUserId(headers);
         if (userId == null) {

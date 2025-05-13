@@ -1,39 +1,34 @@
 package com.example.minisocial.service.GroupManagement;
 
-import com.example.minisocial.model.Group;
-import com.example.minisocial.model.GroupMembership;
-import com.example.minisocial.model.GroupPost;
-import com.example.minisocial.model.User;
-import com.example.minisocial.util.JwtUtil;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
+import com.example.minisocial.DTO.GroupCreateDTO;
+import com.example.minisocial.DTO.GroupPostDTO;
+import com.example.minisocial.model.*;
+
+import jakarta.ejb.Stateless;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
-import jakarta.ws.rs.WebApplicationException;
+import jakarta.transaction.Transactional;
 
-@ApplicationScoped
+import java.util.List;
+
+@Stateless
+@Transactional
 public class GroupService {
 
     @PersistenceContext
     private EntityManager em;
 
-    @Inject
-    private JwtUtil jwtUtil;
-
-    public Group createGroup(String token, String name, String description, boolean isOpen) {
-        Long userId = jwtUtil.getIdFromToken(token);
-        User creator = em.find(User.class, userId);
-
+    public Group createGroup(User user, GroupCreateDTO dto) {
         Group group = new Group();
-        group.setName(name);
-        group.setDescription(description);
-        group.setCreator(creator);
-        group.setOpen(isOpen);
+        group.setName(dto.getName());
+        group.setDescription(dto.getDescription());
+        group.setOpen(dto.isOpen());
+        group.setCreator(user);
         em.persist(group);
 
         GroupMembership membership = new GroupMembership();
         membership.setGroup(group);
-        membership.setUser(creator);
+        membership.setUser(user);
         membership.setAdmin(true);
         membership.setStatus(GroupMembership.Status.APPROVED);
         em.persist(membership);
@@ -41,68 +36,142 @@ public class GroupService {
         return group;
     }
 
-    public void requestToJoinGroup(String token, Long groupId) {
-        Long userId = jwtUtil.getIdFromToken(token);
-        User user = em.find(User.class, userId);
+    public void promoteToAdmin(User requester, Long groupId, Long userId) {
+        if (!isUserAdmin(groupId, requester.getId())) {
+            throw new SecurityException("Only admins can promote others.");
+        }
+
+        GroupMembership membership = getMembership(groupId, userId);
+        membership.setAdmin(true);
+        em.merge(membership);
+    }
+
+    public void removeGroupPost(User requester, Long postId) {
+        GroupPost post = em.find(GroupPost.class, postId);
+        if (post == null) {
+            throw new IllegalArgumentException("Post not found.");
+        }
+
+        boolean isAdmin = isUserAdmin(post.getGroup().getId(), requester.getId());
+        boolean isAuthor = post.getAuthor().getId().equals(requester.getId());
+
+        if (!isAdmin && !isAuthor) {
+            throw new SecurityException("Only authors or group admins can remove posts.");
+        }
+
+        em.remove(post);
+    }
+
+    public void removeUserFromGroup(User requester, Long groupId, Long userId) {
+        if (!isUserAdmin(groupId, requester.getId())) {
+            throw new SecurityException("Only admins can remove users.");
+        }
+
+        GroupMembership membership = getMembership(groupId, userId);
+        em.remove(membership);
+    }
+
+    public void deleteGroup(User requester, Long groupId) {
         Group group = em.find(Group.class, groupId);
+        if (group == null || !group.getCreator().getId().equals(requester.getId())) {
+            throw new SecurityException("Only the creator can delete the group.");
+        }
 
-        boolean alreadyRequested = em.createQuery("SELECT COUNT(m) FROM GroupMembership m WHERE m.group = :group AND m.user = :user", Long.class)
-                .setParameter("group", group)
-                .setParameter("user", user)
-                .getSingleResult() > 0;
+        em.createQuery("DELETE FROM GroupPost p WHERE p.group.id = :groupId")
+                .setParameter("groupId", groupId).executeUpdate();
 
-        if (alreadyRequested) throw new WebApplicationException("Already requested or member", 400);
+        em.createQuery("DELETE FROM GroupMembership m WHERE m.group.id = :groupId")
+                .setParameter("groupId", groupId).executeUpdate();
+
+        em.remove(group);
+    }
+
+    public void requestToJoinGroup(User user, Long groupId) {
+        Group group = em.find(Group.class, groupId);
+        if (group == null) {
+            throw new IllegalArgumentException("Group not found.");
+        }
+
+        Long existing = em.createQuery("SELECT COUNT(m) FROM GroupMembership m WHERE m.group.id = :groupId AND m.user.id = :userId", Long.class)
+                .setParameter("groupId", groupId)
+                .setParameter("userId", user.getId())
+                .getSingleResult();
+
+        if (existing > 0) {
+            throw new IllegalStateException("Already requested or joined.");
+        }
 
         GroupMembership membership = new GroupMembership();
         membership.setGroup(group);
         membership.setUser(user);
         membership.setStatus(group.isOpen() ? GroupMembership.Status.APPROVED : GroupMembership.Status.PENDING);
         em.persist(membership);
-
-        // TODO: Send JMS notification
     }
 
-    public void leaveGroup(String token, Long groupId) {
-        Long userId = jwtUtil.getIdFromToken(token);
-        GroupMembership membership = em.createQuery(
+    public void approveJoinRequest(User admin, Long groupId, Long userId) {
+        if (!isUserAdmin(groupId, admin.getId())) {
+            throw new SecurityException("Only admins can approve requests.");
+        }
+
+        GroupMembership membership = getMembership(groupId, userId);
+        membership.setStatus(GroupMembership.Status.APPROVED);
+        em.merge(membership);
+    }
+
+    public void rejectJoinRequest(User admin, Long groupId, Long userId) {
+        if (!isUserAdmin(groupId, admin.getId())) {
+            throw new SecurityException("Only admins can reject requests.");
+        }
+
+        GroupMembership membership = getMembership(groupId, userId);
+        em.remove(membership);
+    }
+
+    public GroupPost createGroupPost(User user, Long groupId, GroupPostDTO dto) {
+        Group group = em.find(Group.class, groupId);
+        if (group == null) {
+            throw new IllegalArgumentException("Group not found.");
+        }
+
+        if (!isUserApprovedMember(groupId, user.getId())) {
+            throw new SecurityException("Not a member of the group.");
+        }
+
+        GroupPost post = new GroupPost();
+        post.setGroup(group);
+        post.setAuthor(user);
+        post.setContent(dto.getContent());
+        em.persist(post);
+
+        return post;
+    }
+
+    private boolean isUserAdmin(Long groupId, Long userId) {
+        Long count = em.createQuery(
+                        "SELECT COUNT(m) FROM GroupMembership m WHERE m.group.id = :groupId AND m.user.id = :userId AND m.isAdmin = true",
+                        Long.class)
+                .setParameter("groupId", groupId)
+                .setParameter("userId", userId)
+                .getSingleResult();
+        return count > 0;
+    }
+
+    private boolean isUserApprovedMember(Long groupId, Long userId) {
+        Long count = em.createQuery(
+                        "SELECT COUNT(m) FROM GroupMembership m WHERE m.group.id = :groupId AND m.user.id = :userId AND m.status = :status",
+                        Long.class)
+                .setParameter("groupId", groupId)
+                .setParameter("userId", userId)
+                .setParameter("status", GroupMembership.Status.APPROVED)
+                .getSingleResult();
+        return count > 0;
+    }
+
+    private GroupMembership getMembership(Long groupId, Long userId) {
+        return em.createQuery(
                         "SELECT m FROM GroupMembership m WHERE m.group.id = :groupId AND m.user.id = :userId", GroupMembership.class)
                 .setParameter("groupId", groupId)
                 .setParameter("userId", userId)
                 .getSingleResult();
-        em.remove(membership);
-    }
-
-    public void approveMembership(String token, Long membershipId) {
-        Long adminId = jwtUtil.getIdFromToken(token);
-        GroupMembership membership = em.find(GroupMembership.class, membershipId);
-
-        boolean isAdmin = em.createQuery("SELECT COUNT(m) FROM GroupMembership m WHERE m.group = :group AND m.user.id = :adminId AND m.isAdmin = true", Long.class)
-                .setParameter("group", membership.getGroup())
-                .setParameter("adminId", adminId)
-                .getSingleResult() > 0;
-
-        if (!isAdmin) throw new WebApplicationException("Only admins can approve", 403);
-
-        membership.setStatus(GroupMembership.Status.APPROVED);
-        em.merge(membership);
-
-        // TODO: Send JMS notification
-    }
-
-    public void postInGroup(String token, Long groupId, String content) {
-        Long userId = jwtUtil.getIdFromToken(token);
-        boolean isMember = em.createQuery(
-                        "SELECT COUNT(m) FROM GroupMembership m WHERE m.group.id = :groupId AND m.user.id = :userId AND m.status = 'APPROVED'", Long.class)
-                .setParameter("groupId", groupId)
-                .setParameter("userId", userId)
-                .getSingleResult() > 0;
-
-        if (!isMember) throw new WebApplicationException("Only members can post", 403);
-
-        GroupPost post = new GroupPost();
-        post.setAuthor(em.find(User.class, userId));
-        post.setGroup(em.find(Group.class, groupId));
-        post.setContent(content);
-        em.persist(post);
     }
 }
