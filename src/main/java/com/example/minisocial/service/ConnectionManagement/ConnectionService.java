@@ -5,6 +5,7 @@ import com.example.minisocial.DTO.UserDTO;
 import com.example.minisocial.model.FriendRequest;
 import com.example.minisocial.model.Friendship;
 import com.example.minisocial.model.User;
+import com.example.minisocial.service.LogManagement.NotificationService;
 import com.example.minisocial.util.JwtUtil;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -21,6 +22,8 @@ public class ConnectionService {
 
     @PersistenceContext
     EntityManager em;
+
+    NotificationService notificationService = NotificationService.getInstance();
 
     public List<UserDTO> getFriends(Long userId) {
         return em.createQuery("SELECT f.friend FROM Friendship f WHERE f.user.id = :uid AND f.status = :status", User.class)
@@ -140,6 +143,7 @@ public class ConnectionService {
             reciprocal.setUser(request.getReceiver());
             reciprocal.setFriend(request.getSender());
             reciprocal.setStatus(Friendship.Status.ACCEPTED);
+            notificationService.notifyObservers("User '" + request.getSender() + "' become friend with " + request.getReceiver() + "'.");
             em.persist(reciprocal);
         }
     }

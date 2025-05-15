@@ -1,9 +1,13 @@
 package com.example.minisocial.service.PostManagement;
 
+import com.example.minisocial.Interface.IObserver;
 import com.example.minisocial.model.Post;
 import com.example.minisocial.model.PostComment;
 import com.example.minisocial.model.PostLike;
 import com.example.minisocial.model.User;
+import com.example.minisocial.service.LogManagement.LogConsoleService;
+import com.example.minisocial.service.LogManagement.LogFileService;
+import com.example.minisocial.service.LogManagement.NotificationService;
 import jakarta.ejb.Stateless;
 import jakarta.persistence.EntityManager;
 import jakarta.persistence.PersistenceContext;
@@ -17,6 +21,9 @@ public class PostService {
     @PersistenceContext
     private EntityManager em;
 
+    NotificationService notificationService = NotificationService.getInstance();
+
+
     public Post createPost(Long userId, String content, String imageUrl, String linkUrl) {
         User author = em.find(User.class, userId);
         Post post = new Post();
@@ -25,6 +32,7 @@ public class PostService {
         post.setImageUrl(imageUrl);
         post.setLinkUrl(linkUrl);
         em.persist(post);
+        notificationService.notifyObservers("User '" + author.getName() + "' created a new post.");
         return post;
     }
 
@@ -82,6 +90,7 @@ public class PostService {
         like.setPost(post);
         like.setUser(user);
         em.persist(like);
+        notificationService.notifyObservers("User '" + user.getName() + "' Liked " + post.getAuthor().getName() + "'s post");
         return like;
     }
 

@@ -6,10 +6,15 @@ import com.example.minisocial.service.LogManagement.NotificationService;
 import jakarta.annotation.PostConstruct;
 import jakarta.ejb.Singleton;
 import jakarta.ejb.Startup;
-import jakarta.ws.rs.ApplicationPath;
-import jakarta.ws.rs.core.Application;
 
-@ApplicationPath("/api")
-public class  HelloApplication extends Application {
+@Singleton
+@Startup
+public class AppStartup {
 
+    @PostConstruct
+    public void init() {
+        NotificationService notificationService = NotificationService.getInstance();
+        notificationService.addObserver(new LogFileService());
+        notificationService.addObserver(new LogConsoleService());
+    }
 }
